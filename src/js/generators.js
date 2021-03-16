@@ -21,28 +21,18 @@ export function generateTeam(allowedTypes, maxLevel, characterCount) {
   let position;
   let idx;
   const teams = [];
-  for (let value = 0; value < characterCount; value += 1) {
-    const characterTeams = characterGenerator(allowedTypes, maxLevel);
-    const char = characterTeams.next();
-    switch (char.value.type) {
-      case 'bowman':
-      case 'swordsman':
-      case 'magician':
-        idx = Math.floor(Math.random() * playerCoordinates.length);
-        position = playerCoordinates[idx];
-        playerCoordinates.splice(idx, 1);
-        break;
-      case 'undead':
-      case 'vampire':
-      case 'daemon':
-        idx = Math.floor(Math.random() * npcCoordinates.length);
-        position = npcCoordinates[idx];
-        npcCoordinates.splice(idx, 1);
-        break;
-      default:
-        break;
+  for (let key = 0; key < characterCount; key += 1) {
+    const { value } = characterGenerator(allowedTypes, maxLevel).next();
+    if (value.isPlayer) {
+      idx = Math.floor(Math.random() * playerCoordinates.length);
+      position = playerCoordinates[idx];
+      playerCoordinates.splice(idx, 1);
+    } else {
+      idx = Math.floor(Math.random() * npcCoordinates.length);
+      position = npcCoordinates[idx];
+      npcCoordinates.splice(idx, 1);
     }
-    teams.push(new PositionedCharacter(char.value, position));
+    teams.push(new PositionedCharacter(value, position));
   }
   return teams;
 }

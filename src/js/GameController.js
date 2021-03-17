@@ -18,7 +18,7 @@ export default class GameController {
     this.teams = [...this.playerTeams, ...this.npcTeams];
     this.gamePlay.redrawPositions(this.teams);
     this.state = this.teams;
-    this.currentChar = null;
+    // this.currentChar = null;
     this.selectedChar = null;
     this.currentSelectedCharIndex = null;
     this.clickOnCells();
@@ -30,18 +30,18 @@ export default class GameController {
 
   onCellClick(index) {
     const { firstChild } = this.gamePlay.cells[index];
+    const currentChar = this.state.find((char) => char.position === index);
     // debugger
     // Проверяем есть ли персонаж в ячейке
     if (firstChild) {
-      this.currentChar = this.state.find((char) => char.position === index);
       // Если персонаж npc показываем алерт
-      if (!this.selectedChar && !this.currentChar.character.isPlayer) {
+      if (!this.selectedChar && !currentChar.character.isPlayer) {
         GamePlay.showError('This is not a playable character!');
         return;
       }
       // Если персонаж игровой, то присваиваем текущего персонажа в переменную this.selectChar
-      if (this.currentChar.character.isPlayer) {
-        this.selectedChar = this.currentChar;
+      if (currentChar.character.isPlayer) {
+        this.selectedChar = currentChar;
         this.gamePlay.deselectCell(this.currentSelectedCharIndex || index);
         this.gamePlay.selectCell(index);
         this.currentSelectedCharIndex = index;
@@ -50,6 +50,11 @@ export default class GameController {
     }
     // Делаем шаг
     if (!firstChild && this.selectedChar) {
+      // const attackIsPossible = isAttackPossible(
+      //   this.selectedChar.position,
+      //   currentChar.position,
+      //   this.selectedChar.character.range
+      // );
       const isPossible = isStepPossible(
         this.selectedChar.position,
         index,
@@ -118,14 +123,15 @@ export default class GameController {
 
   onCellLeave(index) {
     const { firstChild } = this.gamePlay.cells[index];
+    const currentChar = this.state.find((character) => character.position === index);
     if (firstChild) {
       const { isPlayer } = this.state.find((char) => char.position === index).character;
-      if (this.currentChar && !isPlayer) {
+      if (currentChar && !isPlayer) {
         this.gamePlay.setCursor(cursors.pointer);
         this.gamePlay.cells.forEach((cell) => cell.classList.remove('selected-red'));
       }
     }
-    if (this.currentChar && !firstChild) {
+    if (!firstChild) {
       this.gamePlay.setCursor(cursors.pointer);
       this.gamePlay.cells.forEach((cell) => cell.classList.remove('selected-green'));
       return;

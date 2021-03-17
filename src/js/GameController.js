@@ -18,9 +18,9 @@ export default class GameController {
     this.teams = [...this.playerTeams, ...this.npcTeams];
     this.gamePlay.redrawPositions(this.teams);
     this.state = this.teams;
-    // this.currentChar = null;
     this.selectedChar = null;
     this.currentSelectedCharIndex = null;
+    this.playerTurn = true;
     this.clickOnCells();
     this.overOnCells();
     this.leaveOnCells();
@@ -40,7 +40,7 @@ export default class GameController {
         return;
       }
       // Если персонаж игровой, то присваиваем текущего персонажа в переменную this.selectChar
-      if (currentChar.character.isPlayer) {
+      if (currentChar && currentChar.character.isPlayer) {
         this.selectedChar = currentChar;
         this.gamePlay.deselectCell(this.currentSelectedCharIndex || index);
         this.gamePlay.selectCell(index);
@@ -50,11 +50,6 @@ export default class GameController {
     }
     // Делаем шаг
     if (!firstChild && this.selectedChar) {
-      // const attackIsPossible = isAttackPossible(
-      //   this.selectedChar.position,
-      //   currentChar.position,
-      //   this.selectedChar.character.range
-      // );
       const isPossible = isStepPossible(
         this.selectedChar.position,
         index,
@@ -62,12 +57,10 @@ export default class GameController {
       );
       // Если перемещение доступно, создаем новый стейт и перерендериваем поле,
       // иначе показываем ошибку о недоступности хода
-      if (isPossible) {
+      if (isPossible.success) {
         this.state = [...this.state].filter((char) => char.position !== this.selectedChar.position);
-        this.state.push({
-          character: this.selectedChar.character,
-          position: index,
-        });
+        this.selectedChar.position = index;
+        this.state.push(this.selectedChar);
         // Обнуление состояния
         this.selectedChar = null;
         this.currentSelectedCharIndex = null;
@@ -76,8 +69,27 @@ export default class GameController {
         );
         // Перерисовка
         this.gamePlay.redrawPositions(this.state);
+        this.playerTurn = false;
+        setTimeout(() => this.stepAI(), 1000);
       } else {
         GamePlay.showError('Impossible to go here!');
+      }
+    }
+    if (this.selectedChar && currentChar && !currentChar.character.isPlayer) {
+      const attackIsPossible = isAttackPossible(
+        this.selectedChar.position,
+        currentChar.position,
+        this.selectedChar.character.range
+      );
+      if (attackIsPossible) {
+        this.attackTheEnemy(this.selectedChar, currentChar);
+        this.playerTurn = false;
+        this.selectedChar = null;
+        this.currentSelectedCharIndex = null;
+        this.gamePlay.cells.forEach((cell) =>
+          cell.classList.remove('selected-yellow', 'selected-green')
+        );
+        setTimeout(() => this.stepAI(), 1000);
       }
     }
   }
@@ -92,10 +104,11 @@ export default class GameController {
         this.selectedChar.position,
         index,
         this.selectedChar.character.step
-      );
+      ).success;
       // Проверяем можно ли сделать шаг на указанную клетку, если да, то подсвечивает клетку
       if (stepIsPossible) {
         this.gamePlay.selectCell(index, 'green');
+        this.gamePlay.setCursor(cursors.pointer);
       }
     }
     // Если в ячейке есть персонаж показывает его бейджик
@@ -152,7 +165,53 @@ export default class GameController {
   }
 
   attackTheEnemy(attacker, defender) {
-    const damage = Math.max(attacker.attack - defender.defence, attacker.attack * 0.1);
-    console.log(damage);
+    const enemy = defender;
+    const attackPoints = Math.max(
+      attacker.character.attack - enemy.character.defence,
+      attacker.character.attack * 0.1
+    );
+    this.state = this.state.filter((char) => char.position !== defender.position);
+    enemy.character.damage(attackPoints);
+    if (enemy.character.health > 0) {
+      this.state.push(enemy);
+    }
+    this.gamePlay
+      .showDamage(defender.position, attackPoints)
+      .then(() => this.gamePlay.redrawPositions(this.state));
+  }
+
+  stepAI() {
+    // this.gamePlay.unsubscribe();
+    this.gamePlay.setCursor(cursors.auto);
+    this.gamePlay.cells.forEach((cell) =>
+      cell.classList.remove('selected-red', 'selected-yellow', 'selected-green')
+    );
+    // Выбираем рандомного npc для хода
+    const npcTeam = this.state.filter((char) => !char.character.isPlayer);
+    const playerTeam = this.state.filter((char) => char.character.isPlayer);
+    const npc = npcTeam[Math.floor(Math.random() * npcTeam.length)];
+    for (const player of playerTeam) {
+      const attackIsPossible = isAttackPossible(npc.position, player.position, npc.character.range);
+      if (attackIsPossible) {
+        this.attackTheEnemy(npc, player);
+        this.playerTurn = true;
+        break;
+      } else {
+        const accessSteps = isStepPossible(npc.position, 0, npc.character.step).indexArray.filter(
+          (position) => position !== playerTeam[0].position && position !== playerTeam[1].position
+        );
+        this.state = [...this.state].filter((char) => char.position !== npc.position);
+        const newPosition = accessSteps[Math.floor(Math.random() * accessSteps.length)];
+        npc.position = newPosition;
+        this.state.push(npc);
+        this.gamePlay.redrawPositions(this.state);
+        break;
+      }
+    }
+    //   setTimeout(() => {
+    //     this.clickOnCells();
+    //     this.overOnCells();
+    //     this.leaveOnCells();
+    //   }, 5000);
   }
 }

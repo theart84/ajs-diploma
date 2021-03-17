@@ -43,13 +43,10 @@ export function calcHealthLevel(health) {
  * @returns {Array}
  */
 function generateArrayOfCoordinates() {
-  const coordinates = [];
-  for (let y = 0; y < 8; y += 1) {
-    for (let x = 0; x < 8; x += 1) {
-      coordinates.push({ x, y });
-    }
-  }
-  return coordinates;
+  return new Array(64)
+    .fill(0)
+    .map((e, i) => i++)
+    .map((e, i) => ({ x: i % 8, y: Math.floor(i / 8) }));
 }
 
 /**
@@ -57,7 +54,7 @@ function generateArrayOfCoordinates() {
  * @param {Number} curPosition The current position of the character
  * @param {Number} nextPosition
  * @param {Number} step Step
- * @returns {boolean} Return result
+ * @returns {{success: boolean, indexArray: []}} Return result
  */
 export function isStepPossible(curPosition, nextPosition, step) {
   const coordinates = generateArrayOfCoordinates();
@@ -76,9 +73,18 @@ export function isStepPossible(curPosition, nextPosition, step) {
       [currentXY.x + i, currentXY.y + i]
     );
   }
-  return referenceCoordinateArray.some(
-    (coordinate) => coordinate[0] === nextXY.x && coordinate[1] === nextXY.y
-  );
+  const convertCoordinates = referenceCoordinateArray
+    .filter(
+      (coordinate) =>
+        coordinate[0] >= 0 && coordinate[1] >= 0 && coordinate[0] <= 7 && coordinate[1] <= 7
+    )
+    .map((coordinate) => coordinate[0] + coordinate[1] * 8);
+  return {
+    success: referenceCoordinateArray.some(
+      (coordinate) => coordinate[0] === nextXY.x && coordinate[1] === nextXY.y
+    ),
+    indexArray: convertCoordinates,
+  };
 }
 
 /**
@@ -86,7 +92,7 @@ export function isStepPossible(curPosition, nextPosition, step) {
  * @param {Number} curPosition The current position of the character
  * @param {Number} enemyPosition The current position of the enemy
  * @param {Number} range Distance
- * @returns {boolean} Return result
+ * @returns {Any} Return result
  */
 export function isAttackPossible(curPosition, enemyPosition, range) {
   const coordinates = generateArrayOfCoordinates();
@@ -95,7 +101,9 @@ export function isAttackPossible(curPosition, enemyPosition, range) {
   const referenceCoordinateArray = [];
   for (let y = currentXY.y - range; y <= currentXY.y + range; y += 1) {
     for (let x = currentXY.x - range; x <= currentXY.x + range; x += 1) {
-      referenceCoordinateArray.push({ x, y });
+      if (x >= 0 && x <= 7 && y >= 0 && y <= 7) {
+        referenceCoordinateArray.push({ x, y });
+      }
     }
   }
 

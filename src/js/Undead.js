@@ -7,5 +7,6 @@ export default class Undead extends Character {
     this.defence = 10;
     this.isPlayer = false;
     this.step = 4;
+    this.range = 1;
   }
 }

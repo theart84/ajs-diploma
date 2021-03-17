@@ -38,41 +38,31 @@ export function calcHealthLevel(health) {
   return 'high';
 }
 
+/**
+ * The function generates an array of coordinates in the format {x,y}
+ * @returns {Array}
+ */
 function generateArrayOfCoordinates() {
-  return new Array(64)
-    .fill(0)
-    .map((a, i) => i++)
-    .map((item, index) => {
-      if (index >= 56) {
-        return { x: index - 56, y: 7 };
-      }
-      if (index >= 48) {
-        return { x: index - 48, y: 6 };
-      }
-      if (index >= 40) {
-        return { x: index - 40, y: 5 };
-      }
-      if (index >= 32) {
-        return { x: index - 32, y: 4 };
-      }
-      if (index >= 24) {
-        return { x: index - 24, y: 3 };
-      }
-      if (index >= 16) {
-        return { x: index - 16, y: 2 };
-      }
-      if (index >= 8) {
-        return { x: index - 8, y: 1 };
-      }
-
-      return { x: index, y: 0 };
-    });
+  const coordinates = [];
+  for (let y = 0; y < 8; y += 1) {
+    for (let x = 0; x < 8; x += 1) {
+      coordinates.push({ x, y });
+    }
+  }
+  return coordinates;
 }
 
-export function isStepPosible(curPosition, nextPosition, step) {
-  const cordinates = generateArrayOfCoordinates();
-  const currentXY = cordinates[curPosition];
-  const nextXY = cordinates[nextPosition];
+/**
+ * The function calculates whether a step is available
+ * @param {Number} curPosition The current position of the character
+ * @param {Number} nextPosition
+ * @param {Number} step Step
+ * @returns {boolean} Return result
+ */
+export function isStepPossible(curPosition, nextPosition, step) {
+  const coordinates = generateArrayOfCoordinates();
+  const currentXY = coordinates[curPosition];
+  const nextXY = coordinates[nextPosition];
   const referenceCoordinateArray = [];
   for (let i = 1; i <= step; i += 1) {
     referenceCoordinateArray.push(
@@ -88,5 +78,28 @@ export function isStepPosible(curPosition, nextPosition, step) {
   }
   return referenceCoordinateArray.some(
     (coordinate) => coordinate[0] === nextXY.x && coordinate[1] === nextXY.y
+  );
+}
+
+/**
+ * The function calculates whether an attack is available
+ * @param {Number} curPosition The current position of the character
+ * @param {Number} enemyPosition The current position of the enemy
+ * @param {Number} range Distance
+ * @returns {boolean} Return result
+ */
+export function isAttackPossible(curPosition, enemyPosition, range) {
+  const coordinates = generateArrayOfCoordinates();
+  const currentXY = coordinates[curPosition];
+  const enemyXY = coordinates[enemyPosition];
+  const referenceCoordinateArray = [];
+  for (let y = currentXY.y - range; y <= currentXY.y + range; y += 1) {
+    for (let x = currentXY.x - range; x <= currentXY.x + range; x += 1) {
+      referenceCoordinateArray.push({ x, y });
+    }
+  }
+
+  return referenceCoordinateArray.some(
+    (coordinate) => coordinate.x === enemyXY.x && coordinate.y === enemyXY.y
   );
 }

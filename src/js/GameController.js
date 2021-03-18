@@ -4,6 +4,8 @@ import cursors from './cursors';
 import themes from './themes';
 import Team from './Team';
 import GamePlay from './GamePlay';
+import GameState from './GameState';
+import Character from './Character';
 
 export default class GameController {
   constructor(gamePlay, stateService) {
@@ -12,20 +14,34 @@ export default class GameController {
   }
 
   init() {
-    this.gamePlay.drawUi(themes.prairie);
+    this.currentLevel = 1;
+    this.gamePlay.drawUi(themes[this.currentLevel - 1]);
     this.playerTeams = generateTeam(new Team().playerTeams, 1, 2);
     this.npcTeams = generateTeam(new Team().npcTeams, 1, 2);
     this.teams = [...this.playerTeams, ...this.npcTeams];
     this.gamePlay.redrawPositions(this.teams);
     this.state = this.teams;
     this.selectedChar = null;
+    this.record = 0;
+    this.numberOfPoints = 0;
     this.currentSelectedCharIndex = null;
     this.playerTurn = true;
     this.clickOnCells();
     this.overOnCells();
     this.leaveOnCells();
-    // TODO: add event listeners to gamePlay events
-    // TODO: load saved stated from stateService
+    this.clickOnNewGame();
+    this.clickOnSaveGame();
+    this.clickOnLoadGame();
+    // загружаем статистику
+    this.renderScore();
+  }
+
+  getNPCTeam() {
+    return this.state.filter((char) => !char.character.isPlayer);
+  }
+
+  getPlayerTeam() {
+    return this.state.filter((char) => char.character.isPlayer);
   }
 
   onCellClick(index) {
@@ -81,6 +97,9 @@ export default class GameController {
   onCellEnter(index) {
     const { firstChild } = this.gamePlay.cells[index];
     const currentChar = this.state.find((character) => character.position === index);
+    if (!firstChild && currentChar) {
+      return;
+    }
     // Если ячейка не пуста и выбран игровой персонаж,
     // проверяем доступность перемещения в указанную ячейку
     if (this.selectedChar && !firstChild) {
@@ -119,21 +138,54 @@ export default class GameController {
   }
 
   onCellLeave(index) {
-    const { firstChild } = this.gamePlay.cells[index];
-    const currentChar = this.state.find((character) => character.position === index);
-    if (firstChild) {
-      const { isPlayer } = this.state.find((char) => char.position === index).character;
-      if (currentChar && !isPlayer) {
-        this.gamePlay.setCursor(cursors.pointer);
-        this.gamePlay.cells.forEach((cell) => cell.classList.remove('selected-red'));
-      }
-    }
-    if (!firstChild) {
-      this.gamePlay.setCursor(cursors.pointer);
-      this.gamePlay.cells.forEach((cell) => cell.classList.remove('selected-green'));
-      return;
-    }
+    this.gamePlay.setCursor(cursors.pointer);
+    this.gamePlay.cells.forEach((cell) => cell.classList.remove('selected-green', 'selected-red'));
     this.gamePlay.hideCellTooltip(index);
+  }
+
+  onNewGame() {
+    this.currentLevel = 1;
+    this.gamePlay.drawUi(themes[this.currentLevel - 1]);
+    this.playerTeams = generateTeam(new Team().playerTeams, 1, 2);
+    this.npcTeams = generateTeam(new Team().npcTeams, 1, 2);
+    this.teams = [...this.playerTeams, ...this.npcTeams];
+    this.gamePlay.redrawPositions(this.teams);
+    this.state = this.teams;
+    this.selectedChar = null;
+    this.numberOfPoints = 0;
+    this.currentSelectedCharIndex = null;
+    this.playerTurn = true;
+    this.clickOnCells();
+    this.overOnCells();
+    this.leaveOnCells();
+    this.renderScore();
+  }
+
+  onSaveGame() {
+    const state = {
+      currentLevel: this.currentLevel,
+      state: this.state,
+      playerTurn: this.playerTurn,
+      numberOfPoints: this.numberOfPoints,
+      record: this.record,
+    };
+    this.stateService.save(GameState.from(state));
+  }
+
+  onLoadGame() {
+    const loadState = GameState.from(this.stateService.load());
+    this.currentLevel = loadState.currentLevel;
+    this.gamePlay.drawUi(themes[loadState.currentLevel - 1]);
+    loadState.state = loadState.state.reduce((acc, prev) => {
+      prev.character.__proto__ = Character.prototype;
+      acc.push(prev);
+      return acc;
+    }, []);
+    this.state = loadState.state;
+    this.numberOfPoints = loadState.numberOfPoints;
+    this.playerTurn = loadState.playerTurn;
+    this.gamePlay.redrawPositions(this.state);
+    this.renderScore();
   }
 
   clickOnCells() {
@@ -146,6 +198,18 @@ export default class GameController {
 
   leaveOnCells() {
     this.gamePlay.addCellLeaveListener(this.onCellLeave.bind(this));
+  }
+
+  clickOnNewGame() {
+    this.gamePlay.addNewGameListener(this.onNewGame.bind(this));
+  }
+
+  clickOnSaveGame() {
+    this.gamePlay.addSaveGameListener(this.onSaveGame.bind(this));
+  }
+
+  clickOnLoadGame() {
+    this.gamePlay.addLoadGameListener(this.onLoadGame.bind(this));
   }
 
   attackTheEnemy(attacker, defender) {
@@ -164,8 +228,11 @@ export default class GameController {
   }
 
   stepAI() {
-    const npcTeam = this.state.filter((char) => !char.character.isPlayer);
-    const playerTeam = this.state.filter((char) => char.character.isPlayer);
+    if (!this.getNPCTeam().length || !this.getPlayerTeam().length) {
+      return;
+    }
+    const npcTeam = this.getNPCTeam();
+    const playerTeam = this.getPlayerTeam();
     const canAttackEnemies = npcTeam.reduce((acc, prev) => {
       const playerChar = [];
       playerTeam.forEach((userChar, index) => {
@@ -213,11 +280,26 @@ export default class GameController {
         cell.classList.remove('selected-yellow', 'selected-green', 'selected-red')
       );
     }
-
+    if (!this.getPlayerTeam().length) {
+      this.gamePlay.redrawPositions(this.state);
+      this.gamePlay.unsubscribe();
+      GamePlay.showMessage('You Lose!');
+      return;
+    }
+    if (!this.getNPCTeam().length) {
+      this.gamePlay.cells.forEach((cell) =>
+        cell.classList.remove('selected-yellow', 'selected-green', 'selected-red')
+      );
+      this.gamePlay.setCursor(cursors.auto);
+      this.playerTurn = false;
+      this.nextLevel();
+      return;
+    }
     this.currentSelectedCharIndex = null;
     this.gamePlay.cells.forEach((cell) =>
       cell.classList.remove('selected-yellow', 'selected-green', 'selected-red')
     );
+    this.gamePlay.setCursor(cursors.auto);
     this.gamePlay.redrawPositions(this.state);
     if (this.selectedChar) {
       this.gamePlay.selectCell(this.selectedChar.position);
@@ -232,7 +314,76 @@ export default class GameController {
       this.overOnCells();
       this.leaveOnCells();
     }
+  }
 
-    // Перерисовка поля
+  nextLevel() {
+    this.gamePlay.unsubscribe();
+    this.currentLevel += 1;
+    if (this.currentLevel > 4) {
+      this.endGame();
+      return;
+    }
+    this.gamePlay.drawUi(themes[this.currentLevel - 1]);
+    this.numberOfPoints += this.getPlayerTeam().reduce(
+      (acc, prev) => acc + prev.character.health,
+      0
+    );
+    this.renderScore();
+    const playerCoordinates = [0, 1, 8, 9, 16, 17, 24, 25, 32, 33, 40, 41, 48, 49, 56, 57];
+    this.state = this.state.reduce((acc, prev) => {
+      prev.character.levelUp();
+      acc.push(prev);
+      return acc;
+    }, []);
+    const quantityChar = this.currentLevel > 3 ? 2 : 1;
+    const newPlayerTeam = generateTeam(new Team().playerTeams, this.currentLevel - 1, quantityChar);
+    this.state = [...this.state, ...newPlayerTeam];
+    this.state = this.state.reduce((acc, prev) => {
+      const idx = Math.floor(Math.random() * playerCoordinates.length);
+      prev.position = playerCoordinates[idx];
+      playerCoordinates.splice(idx, 1);
+      acc.push(prev);
+      return acc;
+    }, []);
+    const newNPCTeams = generateTeam(
+      new Team().npcTeams,
+      this.currentLevel,
+      this.getPlayerTeam().length
+    );
+    newNPCTeams.forEach((char) => {
+      for (let i = 1; i < char.character.level; i++) {
+        char.character.statsUp();
+      }
+    });
+    this.state = [...this.state, ...newNPCTeams];
+    this.gamePlay.redrawPositions(this.state);
+    this.clickOnCells();
+    this.overOnCells();
+    this.leaveOnCells();
+  }
+
+  endGame() {
+    this.gamePlay.redrawPositions(this.state);
+    this.currentLevel -= 1;
+    this.numberOfPoints += this.getPlayerTeam().reduce(
+      (acc, prev) => acc + prev.character.health,
+      0
+    );
+    this.renderScore();
+    GamePlay.showMessage('You Won!');
+  }
+
+  renderScore() {
+    const levelElement = this.gamePlay.container.querySelector('.level-description')
+      .firstElementChild;
+    const scoreElement = this.gamePlay.container.querySelector('.score-description')
+      .firstElementChild;
+    const recordElement = this.gamePlay.container.querySelector('.record-description')
+      .firstElementChild;
+    levelElement.textContent = this.currentLevel;
+    scoreElement.textContent = this.numberOfPoints;
+    this.record = this.record > this.numberOfPoints ? this.record : this.numberOfPoints;
+    recordElement.textContent = this.record;
+    scoreElement.textContent = this.numberOfPoints;
   }
 }

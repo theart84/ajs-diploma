@@ -1,7 +1,8 @@
 export default class GameState {
   static from(object) {
-    console.log(object);
-    // TODO: create object
+    if (typeof object === 'object') {
+      return object;
+    }
     return null;
   }
 }

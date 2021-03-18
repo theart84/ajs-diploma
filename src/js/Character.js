@@ -15,8 +15,11 @@ export default class Character {
       throw new Error('Нельзя повысить уровень умершего');
     }
     this.level += 1;
-    this.attack = Math.max(this.attack, this.attack * (1.8 - this.health / 100));
-    this.defence *= 1.2;
+    this.attack = Math.max(this.attack, +(this.attack * (1.8 - (1 - this.health / 100))).toFixed());
+    this.defence = Math.max(
+      this.defence,
+      +(this.defence * (1.8 - (1 - this.health / 100))).toFixed()
+    );
     this.health += 80;
     if (this.health > 100) {
       this.health = 100;
@@ -30,5 +33,13 @@ export default class Character {
     if (this.health < 0) {
       this.health = 0;
     }
+  }
+
+  statsUp() {
+    this.attack = Math.max(this.attack, +(this.attack * (1.8 - (1 - this.health / 100))).toFixed());
+    this.defence = Math.max(
+      this.defence,
+      +(this.defence * (1.8 - (1 - this.health / 100))).toFixed()
+    );
   }
 }

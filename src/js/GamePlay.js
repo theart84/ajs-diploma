@@ -35,6 +35,19 @@ export default class GamePlay {
         <button data-id="action-save" class="btn">Save Game</button>
         <button data-id="action-load" class="btn">Load Game</button>
       </div>
+      <div class="statistics">
+        <div class="row">
+          <div class="level-container">
+            <p class="level-description">Level: <span></span></p>
+          </div>
+          <div class="score-container">
+             <p class="score-description">Score: <span></span></p>   
+          </div>
+          <div class="record">
+             <p class="record-description">Record: <span></span></p>   
+          </div>
+        </div>
+      </div>
       <div class="board-container">
         <div data-id="board" class="board"></div>
       </div>

@@ -92,7 +92,7 @@ export function isStepPossible(curPosition, nextPosition, step) {
  * @param {Number} curPosition The current position of the character
  * @param {Number} enemyPosition The current position of the enemy
  * @param {Number} range Distance
- * @returns {Any} Return result
+ * @returns {boolean} Return result
  */
 export function isAttackPossible(curPosition, enemyPosition, range) {
   const coordinates = generateArrayOfCoordinates();

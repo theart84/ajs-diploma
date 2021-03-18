@@ -61,16 +61,7 @@ export default class GameController {
         this.state = [...this.state].filter((char) => char.position !== this.selectedChar.position);
         this.selectedChar.position = index;
         this.state.push(this.selectedChar);
-        // Обнуление состояния
-        this.selectedChar = null;
-        this.currentSelectedCharIndex = null;
-        this.gamePlay.cells.forEach((cell) =>
-          cell.classList.remove('selected-yellow', 'selected-green')
-        );
-        // Перерисовка
-        this.gamePlay.redrawPositions(this.state);
-        this.playerTurn = false;
-        setTimeout(() => this.stepAI(), 1000);
+        this.endOfTurn();
       } else {
         GamePlay.showError('Impossible to go here!');
       }
@@ -83,13 +74,6 @@ export default class GameController {
       );
       if (attackIsPossible) {
         this.attackTheEnemy(this.selectedChar, currentChar);
-        this.playerTurn = false;
-        this.selectedChar = null;
-        this.currentSelectedCharIndex = null;
-        this.gamePlay.cells.forEach((cell) =>
-          cell.classList.remove('selected-yellow', 'selected-green')
-        );
-        setTimeout(() => this.stepAI(), 1000);
       }
     }
   }
@@ -175,43 +159,80 @@ export default class GameController {
     if (enemy.character.health > 0) {
       this.state.push(enemy);
     }
-    this.gamePlay
-      .showDamage(defender.position, attackPoints)
-      .then(() => this.gamePlay.redrawPositions(this.state));
+
+    this.gamePlay.showDamage(defender.position, attackPoints).then(() => this.endOfTurn());
   }
 
   stepAI() {
-    // this.gamePlay.unsubscribe();
-    this.gamePlay.setCursor(cursors.auto);
-    this.gamePlay.cells.forEach((cell) =>
-      cell.classList.remove('selected-red', 'selected-yellow', 'selected-green')
-    );
-    // Выбираем рандомного npc для хода
     const npcTeam = this.state.filter((char) => !char.character.isPlayer);
     const playerTeam = this.state.filter((char) => char.character.isPlayer);
-    const npc = npcTeam[Math.floor(Math.random() * npcTeam.length)];
-    for (const player of playerTeam) {
-      const attackIsPossible = isAttackPossible(npc.position, player.position, npc.character.range);
-      if (attackIsPossible) {
-        this.attackTheEnemy(npc, player);
-        this.playerTurn = true;
-        break;
-      } else {
-        const accessSteps = isStepPossible(npc.position, 0, npc.character.step).indexArray.filter(
-          (position) => position !== playerTeam[0].position && position !== playerTeam[1].position
-        );
+    const canAttackEnemies = npcTeam.reduce((acc, prev) => {
+      const playerChar = [];
+      playerTeam.forEach((userChar, index) => {
+        const canAttack = isAttackPossible(prev.position, userChar.position, prev.character.range);
+        if (canAttack) {
+          playerChar.push(playerTeam[index]);
+        }
+      });
+      if (playerChar.length > 0) {
+        acc.push({
+          npc: prev,
+          playerChar,
+        });
+      }
+      return acc;
+    }, []);
+
+    const attacker = canAttackEnemies[Math.floor(Math.random() * canAttackEnemies.length)];
+    if (attacker) {
+      const defender = attacker.playerChar[Math.floor(Math.random() * attacker.playerChar.length)];
+      this.attackTheEnemy(attacker.npc, defender);
+    } else {
+      const npc = npcTeam[Math.floor(Math.random() * npcTeam.length)];
+      const indexSteps = isStepPossible(npc.position, 0, npc.character.step).indexArray.filter(
+        (index) => {
+          const positions = [...this.state].map((char) => char.position);
+          return !positions.includes(index);
+        }
+      );
+      if (indexSteps) {
+        const newPosition = indexSteps[Math.floor(Math.random() * indexSteps.length)];
         this.state = [...this.state].filter((char) => char.position !== npc.position);
-        const newPosition = accessSteps[Math.floor(Math.random() * accessSteps.length)];
         npc.position = newPosition;
         this.state.push(npc);
-        this.gamePlay.redrawPositions(this.state);
-        break;
+        this.endOfTurn();
       }
     }
-    //   setTimeout(() => {
-    //     this.clickOnCells();
-    //     this.overOnCells();
-    //     this.leaveOnCells();
-    //   }, 5000);
+  }
+
+  endOfTurn() {
+    if (!this.selectedChar.character.health) {
+      this.selectedChar = null;
+      this.gamePlay.redrawPositions(this.state);
+      this.gamePlay.cells.forEach((cell) =>
+        cell.classList.remove('selected-yellow', 'selected-green', 'selected-red')
+      );
+    }
+
+    this.currentSelectedCharIndex = null;
+    this.gamePlay.cells.forEach((cell) =>
+      cell.classList.remove('selected-yellow', 'selected-green', 'selected-red')
+    );
+    this.gamePlay.redrawPositions(this.state);
+    if (this.selectedChar) {
+      this.gamePlay.selectCell(this.selectedChar.position);
+    }
+    if (this.playerTurn) {
+      this.gamePlay.unsubscribe();
+      this.playerTurn = false;
+      this.stepAI();
+    } else {
+      this.playerTurn = true;
+      this.clickOnCells();
+      this.overOnCells();
+      this.leaveOnCells();
+    }
+
+    // Перерисовка поля
   }
 }

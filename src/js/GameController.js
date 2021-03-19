@@ -24,7 +24,7 @@ export default class GameController {
     this.selectedChar = null;
     this.record = 0;
     this.numberOfPoints = 0;
-    this.currentSelectedCharIndex = null;
+    this.prevSelectedCharIndex = null;
     this.playerTurn = true;
     this.clickOnCells();
     this.overOnCells();
@@ -34,6 +34,34 @@ export default class GameController {
     this.clickOnLoadGame();
     // загружаем статистику
     this.renderScore();
+
+    // Эксперимент
+    // this.stepIsPossible = false;
+  }
+
+  // Подписки на события
+  clickOnCells() {
+    this.gamePlay.addCellClickListener(this.onCellClick.bind(this));
+  }
+
+  overOnCells() {
+    this.gamePlay.addCellEnterListener(this.onCellEnter.bind(this));
+  }
+
+  leaveOnCells() {
+    this.gamePlay.addCellLeaveListener(this.onCellLeave.bind(this));
+  }
+
+  clickOnNewGame() {
+    this.gamePlay.addNewGameListener(this.onNewGame.bind(this));
+  }
+
+  clickOnSaveGame() {
+    this.gamePlay.addSaveGameListener(this.onSaveGame.bind(this));
+  }
+
+  clickOnLoadGame() {
+    this.gamePlay.addLoadGameListener(this.onLoadGame.bind(this));
   }
 
   getNPCTeam() {
@@ -45,89 +73,85 @@ export default class GameController {
   }
 
   onCellClick(index) {
-    const { firstChild } = this.gamePlay.cells[index];
+    const isCharacter = this.gamePlay.cells[index].firstElementChild;
     const currentChar = this.state.find((char) => char.position === index);
-    // debugger
-    // Проверяем есть ли персонаж в ячейке
-    if (firstChild) {
-      // Если персонаж npc показываем алерт
-      if (!this.selectedChar && !currentChar.character.isPlayer) {
-        GamePlay.showError('This is not a playable character!');
-        return;
-      }
+    // Проверяем ячейку на наличия персонажа в ней
+    if (isCharacter) {
       // Если персонаж игровой, то присваиваем текущего персонажа в переменную this.selectChar
       if (currentChar && currentChar.character.isPlayer) {
         this.selectedChar = currentChar;
-        this.gamePlay.deselectCell(this.currentSelectedCharIndex || index);
+        this.gamePlay.cells.forEach((cell) => cell.classList.remove('selected-yellow'));
         this.gamePlay.selectCell(index);
-        this.currentSelectedCharIndex = index;
+        this.prevSelectedCharIndex = index;
         this.gamePlay.setCursor(cursors.pointer);
       }
     }
-    // Делаем шаг
-    if (!firstChild && this.selectedChar) {
-      const isPossible = isStepPossible(
-        this.selectedChar.position,
-        index,
-        this.selectedChar.character.step
-      );
-      // Если перемещение доступно, создаем новый стейт и перерендериваем поле,
-      // иначе показываем ошибку о недоступности хода
-      if (isPossible.success) {
-        this.state = [...this.state].filter((char) => char.position !== this.selectedChar.position);
-        this.selectedChar.position = index;
-        this.state.push(this.selectedChar);
-        this.endOfTurn();
-      } else {
-        GamePlay.showError('Impossible to go here!');
-      }
+
+    // Если перемещение доступно, фильтрует стейт, пушим измененного чара и рендерим поле
+    if (this.stepIsPossible && !isCharacter) {
+      this.state = [...this.state].filter((char) => char.position !== this.selectedChar.position);
+      this.selectedChar.position = index;
+      this.state.push(this.selectedChar);
+      this.endOfTurn();
     }
-    if (this.selectedChar && currentChar && !currentChar.character.isPlayer) {
-      const attackIsPossible = isAttackPossible(
-        this.selectedChar.position,
-        currentChar.position,
-        this.selectedChar.character.range
-      );
-      if (attackIsPossible) {
-        this.attackTheEnemy(this.selectedChar, currentChar);
-      }
+
+    // Если ходить на данную ячейку нельзя, уведомляем пользователя об этом.
+    if (!this.stepIsPossible && !isCharacter && this.selectedChar) {
+      this.gamePlay.showTooltip('Information', 'Impossible to go here!', 'warning');
+    }
+
+    // Если атака доступна, вызываем
+    if (this.attackIsPossible) {
+      this.attackTheEnemy(this.selectedChar, currentChar);
+      return;
+    }
+
+    // Если range атаки не достаточно, уведомляем о том что атаковать врага нельзя.
+    if (isCharacter && this.selectedChar && !currentChar.character.isPlayer) {
+      this.gamePlay.showTooltip('Information', 'To far...', 'warning');
+      return;
+    }
+
+    // Если клик был произведен по ячейке с неигровым персонажей, уведомляем об этой пользователя
+    if (isCharacter && !currentChar.character.isPlayer) {
+      this.gamePlay.showTooltip('Information', 'This is not a playable character!', 'danger');
     }
   }
 
   onCellEnter(index) {
-    const { firstChild } = this.gamePlay.cells[index];
+    const isCharacter = this.gamePlay.cells[index].firstElementChild;
     const currentChar = this.state.find((character) => character.position === index);
-    if (!firstChild && currentChar) {
+    if (!isCharacter && currentChar) {
       return;
     }
     // Если ячейка не пуста и выбран игровой персонаж,
     // проверяем доступность перемещения в указанную ячейку
-    if (this.selectedChar && !firstChild) {
-      const stepIsPossible = isStepPossible(
+    if (this.selectedChar && !isCharacter) {
+      this.stepIsPossible = isStepPossible(
         this.selectedChar.position,
         index,
         this.selectedChar.character.step
       ).success;
-      // Проверяем можно ли сделать шаг на указанную клетку, если да, то подсвечивает клетку
-      if (stepIsPossible) {
+      // Если true подсвечиваем ячейку и меняем курсор
+      if (this.stepIsPossible) {
         this.gamePlay.selectCell(index, 'green');
         this.gamePlay.setCursor(cursors.pointer);
       }
     }
     // Если в ячейке есть персонаж показывает его бейджик
-    if (firstChild) {
+    if (isCharacter) {
       const message = `🎖 ${currentChar.character.level} ⚔ ${currentChar.character.attack} 🛡 ${currentChar.character.defence} ❤ ${currentChar.character.health}`;
       this.gamePlay.showCellTooltip(message, index);
       // Если выбран персонаж игрока и в наведенной есть npc,
       // то рассчитываем возможность атаки
       if (this.selectedChar && !currentChar.character.isPlayer) {
-        const attackIsPossible = isAttackPossible(
+        this.attackIsPossible = isAttackPossible(
           this.selectedChar.position,
           currentChar.position,
           this.selectedChar.character.range
         );
         // Если дистанция атаки позволяет атаковать, изменяем курсор и подсветку ячейки
-        if (attackIsPossible) {
+        if (this.attackIsPossible) {
           this.gamePlay.setCursor(cursors.crosshair);
           this.gamePlay.selectCell(index, 'red');
         } else {
@@ -153,7 +177,7 @@ export default class GameController {
     this.state = this.teams;
     this.selectedChar = null;
     this.numberOfPoints = 0;
-    this.currentSelectedCharIndex = null;
+    this.prevSelectedCharIndex = null;
     this.playerTurn = true;
     this.clickOnCells();
     this.overOnCells();
@@ -162,6 +186,7 @@ export default class GameController {
   }
 
   onSaveGame() {
+    this.gamePlay.showTooltip('test', 'test');
     const state = {
       currentLevel: this.currentLevel,
       state: this.state,
@@ -188,36 +213,12 @@ export default class GameController {
     this.renderScore();
   }
 
-  clickOnCells() {
-    this.gamePlay.addCellClickListener(this.onCellClick.bind(this));
-  }
-
-  overOnCells() {
-    this.gamePlay.addCellEnterListener(this.onCellEnter.bind(this));
-  }
-
-  leaveOnCells() {
-    this.gamePlay.addCellLeaveListener(this.onCellLeave.bind(this));
-  }
-
-  clickOnNewGame() {
-    this.gamePlay.addNewGameListener(this.onNewGame.bind(this));
-  }
-
-  clickOnSaveGame() {
-    this.gamePlay.addSaveGameListener(this.onSaveGame.bind(this));
-  }
-
-  clickOnLoadGame() {
-    this.gamePlay.addLoadGameListener(this.onLoadGame.bind(this));
-  }
-
   attackTheEnemy(attacker, defender) {
     const enemy = defender;
-    const attackPoints = Math.max(
+    const attackPoints = +Math.max(
       attacker.character.attack - enemy.character.defence,
       attacker.character.attack * 0.1
-    );
+    ).toFixed();
     this.state = this.state.filter((char) => char.position !== defender.position);
     enemy.character.damage(attackPoints);
     if (enemy.character.health > 0) {
@@ -227,6 +228,7 @@ export default class GameController {
     this.gamePlay.showDamage(defender.position, attackPoints).then(() => this.endOfTurn());
   }
 
+  // Ход npc
   stepAI() {
     if (!this.getNPCTeam().length || !this.getPlayerTeam().length) {
       return;
@@ -272,6 +274,7 @@ export default class GameController {
     }
   }
 
+  // Переход хода
   endOfTurn() {
     if (!this.selectedChar.character.health) {
       this.selectedChar = null;
@@ -282,7 +285,7 @@ export default class GameController {
     }
     if (!this.getPlayerTeam().length) {
       this.gamePlay.redrawPositions(this.state);
-      this.gamePlay.unsubscribe();
+      // this.gamePlay.unsubscribe();
       GamePlay.showMessage('You Lose!');
       return;
     }
@@ -295,7 +298,7 @@ export default class GameController {
       this.nextLevel();
       return;
     }
-    this.currentSelectedCharIndex = null;
+    this.prevSelectedCharIndex = null;
     this.gamePlay.cells.forEach((cell) =>
       cell.classList.remove('selected-yellow', 'selected-green', 'selected-red')
     );
@@ -305,17 +308,18 @@ export default class GameController {
       this.gamePlay.selectCell(this.selectedChar.position);
     }
     if (this.playerTurn) {
-      this.gamePlay.unsubscribe();
+      // this.gamePlay.unsubscribe();
       this.playerTurn = false;
       this.stepAI();
     } else {
       this.playerTurn = true;
-      this.clickOnCells();
-      this.overOnCells();
-      this.leaveOnCells();
+      // this.clickOnCells();
+      // this.overOnCells();
+      // this.leaveOnCells();
     }
   }
 
+  // Переход на новый уровень
   nextLevel() {
     this.gamePlay.unsubscribe();
     this.currentLevel += 1;
@@ -362,6 +366,7 @@ export default class GameController {
     this.leaveOnCells();
   }
 
+  // Конец игры
   endGame() {
     this.gamePlay.redrawPositions(this.state);
     this.currentLevel -= 1;
@@ -373,6 +378,7 @@ export default class GameController {
     GamePlay.showMessage('You Won!');
   }
 
+  // Рендер очков
   renderScore() {
     const levelElement = this.gamePlay.container.querySelector('.level-description')
       .firstElementChild;

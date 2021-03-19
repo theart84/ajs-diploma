@@ -258,6 +258,7 @@ body {
   width: 100%;
   color: #f8f9fa;
 }
+
 .row {
   display: flex;
   margin-left: auto;
@@ -267,3 +268,62 @@ body {
 .row div {
   margin-right: 10px;
 }
+
+#game-container {
+  position: relative;
+}
+
+.tooltips-container {
+  position: absolute;
+  width: 250px;
+  top: 0;
+  right: 50px;
+  z-index: 10;
+}
+
+.tooltip-container {
+  background-color: #fff;
+  border-radius: 5px;
+  margin-bottom: 10px;
+}
+
+.tooltip-header {
+  position: relative;
+  text-align: center;
+  padding: 5px;
+  margin: 0
+}
+
+.tooltip-header::after {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  content: '';
+  height: 1px;
+  background-color: #000;
+}
+
+.tooltip-title {
+  margin: 0;
+  padding-top: 10px;
+}
+
+.tooltip-body {
+  text-align: center;
+  padding: 5px;
+  margin: 0;
+}
+
+.warning {
+  background-color: #ffc107;
+  border-bottom-left-radius: 5px;
+  border-bottom-right-radius: 5px;
+}
+
+.danger {
+  background-color: #dc3545;
+  border-bottom-left-radius: 5px;
+  border-bottom-right-radius: 5px;
+}
+

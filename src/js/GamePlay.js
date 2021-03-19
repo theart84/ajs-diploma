@@ -76,6 +76,10 @@ export default class GamePlay {
     this.cells = Array.from(this.boardEl.children);
 
     // Мои тултипы
+    this.renderContainerTooltip();
+  }
+
+  renderContainerTooltip() {
     const containerTooltips = document.createElement('div');
     containerTooltips.classList.add('tooltips-container');
     this.container.appendChild(containerTooltips);
@@ -251,6 +255,10 @@ export default class GamePlay {
 
   unsubscribe() {
     this.cellClickListeners = [];
+  }
+
+  unsubscribeAllMouseListeners() {
+    this.cellClickListeners = [];
     this.cellEnterListeners = [];
     this.cellLeaveListeners = [];
   }
@@ -275,7 +283,11 @@ export default class GamePlay {
     container.insertAdjacentHTML('afterbegin', template);
     setTimeout(() => {
       const tooltipElement = document.querySelector(`.tooltip-container[data-id="${id}"]`);
-      tooltipElement.remove();
+      try {
+        tooltipElement.remove();
+      } catch (e) {
+        console.log('Хватит так часто тыкать!!!');
+      }
     }, 2000);
   }
 }

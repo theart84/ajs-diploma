@@ -327,3 +327,8 @@ body {
   border-bottom-right-radius: 5px;
 }
 
+.info {
+  background-color: #0dcaf0;
+  border-bottom-left-radius: 5px;
+  border-bottom-right-radius: 5px;
+}

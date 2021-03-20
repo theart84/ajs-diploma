@@ -3,7 +3,6 @@ export default class GameState {
     if (typeof object === 'object') {
       return {
         currentLevel: null,
-        state: null,
         playerTurn: null,
         numberOfPoints: null,
         record: null,

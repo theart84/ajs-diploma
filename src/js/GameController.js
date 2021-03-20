@@ -130,9 +130,6 @@ export default class GameController {
   onCellEnter(index) {
     const isCharacter = this.gamePlay.cells[index].firstElementChild;
     const currentChar = this.state.teams.find((character) => character.position === index);
-    if (!isCharacter && currentChar) {
-      return;
-    }
     // Если ячейка не пуста и выбран игровой персонаж,
     // проверяем доступность перемещения в указанную ячейку
     if (this.selectedChar && !isCharacter) {
@@ -196,7 +193,13 @@ export default class GameController {
 
   // Загрузка игры
   onLoadGame() {
-    const loadState = this.stateService.load();
+    let loadState = null;
+    try {
+      loadState = this.stateService.load();
+    } catch (e) {
+      this.gamePlay.showTooltip('Information', e, 'danger');
+      return;
+    }
     this.state.currentLevel = loadState.currentLevel;
     this.gamePlay.drawUi(themes[loadState.currentLevel - 1]);
     loadState.teams = loadState.teams.reduce((acc, prev) => {

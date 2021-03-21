@@ -123,41 +123,32 @@ test('Метод onCellClick проверяет, что если в ячейке
   gameCtrl.gamePlay.selectCell = jest.fn();
   gameCtrl.gamePlay.setCursor = jest.fn();
   gameCtrl.onCellClick(0);
-
   expect(gameCtrl.gamePlay.selectCell).toHaveBeenCalledWith(0);
   expect(gameCtrl.gamePlay.setCursor).toHaveBeenCalledWith('pointer');
 });
 
-test(
-  'Метод onCellClick проверяет, ' +
-    'возможно ли переместится в данную ячейку, если да то перемещаемся',
-  () => {
-    // eslint-disable-next-line prefer-destructuring
-    gameCtrl.selectedChar = gameCtrl.state.teams[0];
-    gameCtrl.stepIsPossible = true;
-    gameCtrl.gamePlay.showTooltip = jest.fn();
-    gameCtrl.endOfTurn = jest.fn();
-    gameCtrl.onCellClick(8);
-    expect(gameCtrl.endOfTurn).toBeCalled();
-  }
-);
+test(`Метод onCellClick проверяет, возможно ли переместится в данную ячейку, если да то перемещаемся`, () => {
+  // eslint-disable-next-line prefer-destructuring
+  gameCtrl.selectedChar = gameCtrl.state.teams[0];
+  gameCtrl.stepIsPossible = true;
+  gameCtrl.gamePlay.showTooltip = jest.fn();
+  gameCtrl.endOfTurn = jest.fn();
+  gameCtrl.onCellClick(8);
+  expect(gameCtrl.endOfTurn).toBeCalled();
+});
 
-test(
-  'Метод onCellClick проверяет, ' +
-    'если ходить на данную ячейку нельзя, уведомляем пользователя об этом.',
-  () => {
-    // eslint-disable-next-line prefer-destructuring
-    gameCtrl.selectedChar = gameCtrl.state.teams[0];
-    gameCtrl.stepIsPossible = false;
-    gameCtrl.gamePlay.showTooltip = jest.fn();
-    gameCtrl.onCellClick(40);
-    expect(gameCtrl.gamePlay.showTooltip).toHaveBeenCalledWith(
-      'Information',
-      'Impossible to go here!',
-      'warning'
-    );
-  }
-);
+test(`Метод onCellClick проверяет, если ходить на данную ячейку нельзя, уведомляем пользователя об этом.`, () => {
+  // eslint-disable-next-line prefer-destructuring
+  gameCtrl.selectedChar = gameCtrl.state.teams[0];
+  gameCtrl.stepIsPossible = false;
+  gameCtrl.gamePlay.showTooltip = jest.fn();
+  gameCtrl.onCellClick(40);
+  expect(gameCtrl.gamePlay.showTooltip).toHaveBeenCalledWith(
+    'Information',
+    'Impossible to go here!',
+    'warning'
+  );
+});
 
 test('Метод onCellClick проверяет, eсли атака доступна, атакуем', () => {
   // eslint-disable-next-line prefer-destructuring
@@ -245,6 +236,11 @@ test('Метод onLoadGame вызывает метод load, gamePlay.redrawPos
   gameCtrl.onLoadGame();
   expect(gameCtrl.renderScore).toBeCalled();
   expect(gameCtrl.gamePlay.showTooltip).toHaveBeenCalledWith('Information', 'Game loaded', 'info');
+});
+
+test('Метод onLoadGame вызывает метод load, если метод load выпадает в ошибку, ловим ее', () => {
+  gameCtrl.stateService.storage = { getItem: () => new Error() };
+  expect(() => gameCtrl.onLoadGame()).toThrow();
 });
 
 test('Метод attackTheEnemy закончит работу если чары игрока и npc не были переданы', () => {

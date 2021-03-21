@@ -65,7 +65,6 @@ export default class GameController {
   clickOnLoadGame() {
     this.gamePlay.addLoadGameListener(this.onLoadGame.bind(this));
   }
-
   // ======
 
   // Получение чаров npc
@@ -193,6 +192,7 @@ export default class GameController {
 
   // Загрузка игры
   onLoadGame() {
+    this.selectedChar = null;
     let loadState = null;
     try {
       loadState = this.stateService.load();

@@ -188,8 +188,8 @@ test(
   }
 );
 test(
-  'Метод onCellClick проверяет, ' +
-    'eсли клик был произведен по ячейке с неигровым персонажей, уведомляем об этом пользователя',
+  'Метод onCellClick проверяет,' +
+    ' если клик был произведен по ячейке с неигровым персонажей, уведомляем об этом пользователя',
   () => {
     gameCtrl.gamePlay.showTooltip = jest.fn();
     gameCtrl.onCellClick(1);
@@ -245,4 +245,115 @@ test('Метод onLoadGame вызывает метод load, gamePlay.redrawPos
   gameCtrl.onLoadGame();
   expect(gameCtrl.renderScore).toBeCalled();
   expect(gameCtrl.gamePlay.showTooltip).toHaveBeenCalledWith('Information', 'Game loaded', 'info');
+});
+
+test('Метод attackTheEnemy закончит работу если чары игрока и npc не были переданы', () => {
+  gameCtrl.attackTheEnemy(null, null);
+  expect(gameCtrl.attackTheEnemy(null, null)).toBe(undefined);
+});
+
+test('Метод attackTheEnemy запушит игрока если у него хп больше', () => {
+  gameCtrl.gamePlay.showDamage = jest.fn(() => Promise.resolve('test'));
+  gameCtrl.attackTheEnemy(gameCtrl.state.teams[1], gameCtrl.state.teams[0]);
+  expect(gameCtrl.gamePlay.showDamage).toBeCalled();
+});
+
+test('Метод stepAI вызывает метод attackTheEnemy, если npc может атаковать игрока', () => {
+  gameCtrl.attackTheEnemy = jest.fn();
+  gameCtrl.stepAI();
+  expect(gameCtrl.attackTheEnemy).toBeCalled();
+});
+
+test('Метод stepAI завершит работу если нет чаров', () => {
+  gameCtrl.state.teams = [];
+  gameCtrl.stepAI();
+  expect(gameCtrl.stepAI()).toBe(undefined);
+});
+
+test('Метод stepAI вызывает метод endOfTurn, если npc не может атаковать, но он может сходить.', () => {
+  gameCtrl.state.teams[1].position = 55;
+  gameCtrl.endOfTurn = jest.fn();
+  gameCtrl.isStepPossible = jest.fn(() => 54);
+  gameCtrl.stepAI();
+  expect(gameCtrl.endOfTurn).toBeCalled();
+});
+
+test('Метод endOfTurn должен вызвать redrawPositions, если npc убил игрока', () => {
+  // eslint-disable-next-line prefer-destructuring
+  gameCtrl.selectedChar = gameCtrl.state.teams[0];
+  gameCtrl.selectedChar.character.health = 0;
+  gameCtrl.gamePlay.redrawPositions = jest.fn();
+  gameCtrl.endOfTurn();
+  expect(gameCtrl.gamePlay.redrawPositions).toBeCalled();
+});
+
+test('Метод endOfTurn должен вызвать GamePlay.showMessage, если в команде игрока не осталось чаров', () => {
+  // eslint-disable-next-line prefer-destructuring
+  gameCtrl.selectedChar = gameCtrl.state.teams[0];
+  gameCtrl.selectedChar.character.health = 0;
+  gameCtrl.getPlayerTeam = jest.fn(() => []);
+  GamePlay.showMessage = jest.fn();
+  gameCtrl.endOfTurn();
+  expect(GamePlay.showMessage).toBeCalled();
+});
+
+test('Метод endOfTurn должен вызвать nextLevel, если в команде npc не осталось чаров', () => {
+  // eslint-disable-next-line prefer-destructuring
+  gameCtrl.selectedChar = gameCtrl.state.teams[0];
+  gameCtrl.getNPCTeam = jest.fn(() => []);
+  gameCtrl.nextLevel = jest.fn();
+  gameCtrl.endOfTurn();
+  expect(gameCtrl.nextLevel).toBeCalled();
+});
+
+test('Метод endOfTurn устанавливает playerTurn в true, если до этого был ход npc', () => {
+  // eslint-disable-next-line prefer-destructuring
+  gameCtrl.selectedChar = gameCtrl.state.teams[0];
+  gameCtrl.nextLevel = jest.fn();
+  gameCtrl.state.playerTurn = false;
+  gameCtrl.endOfTurn();
+  expect(gameCtrl.state.playerTurn).toBeTruthy();
+});
+
+test('Метод nextLevel, должен вызывать метод unsubscribe, чтобы отписаться от кликов во время загрузки нового левела', () => {
+  gameCtrl.gamePlay.showTooltip = jest.fn();
+  gameCtrl.gamePlay.unsubscribe = jest.fn();
+  gameCtrl.nextLevel();
+  expect(gameCtrl.gamePlay.unsubscribe).toBeCalled();
+});
+
+test('Метод nextLevel, должен вызывать метод endGame, если все уровни пройдены', () => {
+  gameCtrl.state.currentLevel = 5;
+  gameCtrl.gamePlay.showTooltip = jest.fn();
+  gameCtrl.endGame = jest.fn();
+  gameCtrl.gamePlay.unsubscribe = jest.fn();
+  gameCtrl.nextLevel();
+  expect(gameCtrl.endGame).toBeCalled();
+});
+
+test('Метод nextLevel, должен вызывать методы, при переходе на новый уровень', () => {
+  gameCtrl.clickOnCells = jest.fn();
+  gameCtrl.overOnCells = jest.fn();
+  gameCtrl.leaveOnCells = jest.fn();
+  gameCtrl.gamePlay.redrawPositions = jest.fn();
+  gameCtrl.gamePlay.showTooltip = jest.fn();
+  gameCtrl.gamePlay.unsubscribe = jest.fn();
+  gameCtrl.nextLevel();
+  expect(gameCtrl.clickOnCells).toBeCalled();
+  expect(gameCtrl.leaveOnCells).toBeCalled();
+  expect(gameCtrl.overOnCells).toBeCalled();
+  expect(gameCtrl.gamePlay.unsubscribe).toBeCalled();
+  expect(gameCtrl.gamePlay.showTooltip).toHaveBeenCalledWith('Information', 'Next level', 'info');
+});
+
+test('Метод endGame, должен вызвать renderScore, GamePlay.showMessage и GamePlay.unsubscribeAllMouseListeners  в случае победы игроком', () => {
+  gameCtrl.state.currentLevel = 5;
+  gameCtrl.gamePlay.showTooltip = jest.fn();
+  gameCtrl.renderScore = jest.fn();
+  gameCtrl.gamePlay.unsubscribeAllMouseListeners = jest.fn();
+  GamePlay.showMessage = jest.fn();
+  gameCtrl.endGame();
+  expect(gameCtrl.renderScore).toBeCalled();
+  expect(gameCtrl.gamePlay.unsubscribeAllMouseListeners).toBeCalled();
+  expect(GamePlay.showMessage).toHaveBeenCalledWith('You Won!');
 });

@@ -22,13 +22,8 @@ test.each([
   expect(calcHealthLevel(health)).toBe(expected);
 });
 
-test('Функция должна вернуть объект с полями success(тип булеан) и массив значений, куда возможен ход', () => {
-  const referenceObject = {
-    indexArray: [1, 8, 9],
-    success: true,
-  };
-
-  expect(isStepPossible(0, 1, 1)).toEqual(referenceObject);
+test('Функция должна вернуть true если возможен ход', () => {
+  expect(isStepPossible(0, 1, 1)).toBeTruthy();
 });
 
 test('Функция должна возвращать true или false в зависимости от возможности атаки', () => {

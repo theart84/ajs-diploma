@@ -38,13 +38,13 @@ export default class GamePlay {
       <div class="statistics">
         <div class="row">
           <div class="level-container">
-            <p class="level-description">Level: <span></span></p>
+            <p class="level-description">Level: <span class="level-value"></span></p>
           </div>
           <div class="score-container">
-             <p class="score-description">Score: <span></span></p>   
+             <p class="score-description">Score: <span class="score-value"></span></p>   
           </div>
           <div class="record">
-             <p class="record-description">Record: <span></span></p>   
+             <p class="record-description">Record: <span class="record-value"></span></p>   
           </div>
         </div>
       </div>

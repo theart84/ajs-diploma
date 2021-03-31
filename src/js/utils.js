@@ -1,29 +1,24 @@
+/**
+ * The function generates an array of coordinates in the format {x,y}
+ * @returns {Array}
+ */
+function generateArrayOfCoordinates(boardSize) {
+  return new Array(boardSize ** 2)
+    .fill(0)
+    .map((e, i) => ({ x: i % boardSize, y: Math.floor(i / boardSize), index: i }));
+}
+
 export function calcTileType(index, boardSize) {
-  if (index === 0) {
-    return 'top-left';
-  }
-  if (index > 0 && index < boardSize - 1) {
-    return 'top';
-  }
-  if (index === boardSize - 1) {
-    return 'top-right';
-  }
-  if (index === boardSize ** 2 - boardSize) {
-    return 'bottom-left';
-  }
-  if (index === boardSize ** 2 - 1) {
-    return 'bottom-right';
-  }
-  if (index % boardSize === 0) {
-    return 'left';
-  }
-  if ((index - (boardSize - 1)) % boardSize === 0) {
-    return 'right';
-  }
-  if (index < boardSize ** 2 - 1 && index > boardSize ** 2 - boardSize) {
-    return 'bottom';
-  }
-  return 'center';
+  const fillBoard = [
+    'top-left',
+    ...Array(boardSize - 2).fill('top'),
+    'top-right',
+    ...Array(boardSize - 2).fill(['left', ...Array(boardSize - 2).fill('center'), 'right']),
+    'bottom-left',
+    ...Array(boardSize - 2).fill('bottom'),
+    'bottom-right',
+  ].flat();
+  return fillBoard[index];
 }
 
 export function calcHealthLevel(health) {
@@ -39,52 +34,50 @@ export function calcHealthLevel(health) {
 }
 
 /**
- * The function generates an array of coordinates in the format {x,y}
- * @returns {Array}
- */
-function generateArrayOfCoordinates() {
-  return new Array(64)
-    .fill(0)
-    .map((e, i) => i++)
-    .map((e, i) => ({ x: i % 8, y: Math.floor(i / 8) }));
-}
-
-/**
  * The function calculates whether a step is available
  * @param {Number} curPosition The current position of the character
  * @param {Number} nextPosition
  * @param {Number} step Step
- * @returns {{success: boolean, indexArray: []}} Return result
+ * @returns {boolean} Return result
  */
 export function isStepPossible(curPosition, nextPosition, step) {
-  const coordinates = generateArrayOfCoordinates();
+  const coordinates = generateArrayOfCoordinates(8); // исправить хардкод
   const currentXY = coordinates[curPosition];
   const nextXY = coordinates[nextPosition];
-  const referenceCoordinateArray = [];
-  for (let i = 1; i <= step; i += 1) {
-    referenceCoordinateArray.push(
-      [currentXY.x - i, currentXY.y - i],
-      [currentXY.x, currentXY.y - i],
-      [currentXY.x + i, currentXY.y - i],
-      [currentXY.x - i, currentXY.y],
-      [currentXY.x + i, currentXY.y],
-      [currentXY.x - i, currentXY.y + i],
-      [currentXY.x, currentXY.y + i],
-      [currentXY.x + i, currentXY.y + i]
-    );
+  const diffX = Math.abs(nextXY.x - currentXY.x);
+  const diffY = Math.abs(nextXY.y - currentXY.y);
+  if (diffX <= step && diffY <= step) {
+    if (diffX === 0 || diffY === 0 || !Math.abs(diffX - diffY)) {
+      return true;
+    }
   }
-  const convertCoordinates = referenceCoordinateArray
-    .filter(
-      (coordinate) =>
-        coordinate[0] >= 0 && coordinate[1] >= 0 && coordinate[0] <= 7 && coordinate[1] <= 7
-    )
-    .map((coordinate) => coordinate[0] + coordinate[1] * 8);
-  return {
-    success: referenceCoordinateArray.some(
-      (coordinate) => coordinate[0] === nextXY.x && coordinate[1] === nextXY.y
-    ),
-    indexArray: convertCoordinates,
-  };
+  return false;
+
+  // const referenceCoordinateArray = [];
+  // for (let i = 1; i <= step; i += 1) {
+  //   referenceCoordinateArray.push(
+  //     [currentXY.x - i, currentXY.y - i],
+  //     [currentXY.x, currentXY.y - i],
+  //     [currentXY.x + i, currentXY.y - i],
+  //     [currentXY.x - i, currentXY.y],
+  //     [currentXY.x + i, currentXY.y],
+  //     [currentXY.x - i, currentXY.y + i],
+  //     [currentXY.x, currentXY.y + i],
+  //     [currentXY.x + i, currentXY.y + i]
+  //   );
+  // }
+  // const convertCoordinates = referenceCoordinateArray
+  //   .filter(
+  //     (coordinate) =>
+  //       coordinate[0] >= 0 && coordinate[1] >= 0 && coordinate[0] <= 7 && coordinate[1] <= 7
+  //   )
+  //   .map((coordinate) => coordinate[0] + coordinate[1] * 8);
+  // return {
+  //   success: referenceCoordinateArray.some(
+  //     (coordinate) => coordinate[0] === nextXY.x && coordinate[1] === nextXY.y
+  //   ),
+  //   indexArray: convertCoordinates,
+  // };
 }
 
 /**
@@ -95,7 +88,7 @@ export function isStepPossible(curPosition, nextPosition, step) {
  * @returns {boolean} Return result
  */
 export function isAttackPossible(curPosition, enemyPosition, range) {
-  const coordinates = generateArrayOfCoordinates();
+  const coordinates = generateArrayOfCoordinates(8); // исправить хардкод
   const currentXY = coordinates[curPosition];
   const enemyXY = coordinates[enemyPosition];
   const referenceCoordinateArray = [];

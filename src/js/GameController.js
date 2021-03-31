@@ -1,4 +1,4 @@
-import { generateTeam } from './generators';
+import { generateTeam, generateCoordinates } from './generators';
 import { isAttackPossible, isStepPossible } from './utils';
 import cursors from './cursors';
 import themes from './themes';
@@ -31,8 +31,8 @@ export default class GameController {
   prepareGame() {
     this.state.currentLevel = 1;
     this.gamePlay.drawUi(themes[this.state.currentLevel - 1]);
-    const playerTeams = generateTeam(new Team().playerTeams, 1, 2);
-    const npcTeams = generateTeam(new Team().npcTeams, 1, 2);
+    const playerTeams = generateTeam(new Team().playerTeams, 1, 2, this.gamePlay.boardSize);
+    const npcTeams = generateTeam(new Team().npcTeams, 1, 2, this.gamePlay.boardSize);
     this.state.teams = [...playerTeams, ...npcTeams];
     this.selectedChar = null;
     this.state.numberOfPoints = 0;
@@ -65,6 +65,7 @@ export default class GameController {
   clickOnLoadGame() {
     this.gamePlay.addLoadGameListener(this.onLoadGame.bind(this));
   }
+
   // ======
 
   // Получение чаров npc
@@ -78,8 +79,8 @@ export default class GameController {
   }
 
   onCellClick(index) {
-    const isCharacter = this.gamePlay.cells[index].firstElementChild;
-    const currentChar = this.state.teams.find((char) => char.position === index);
+    const isCharacter = this.haveACharacter(index);
+    const currentChar = this.findCurrentChar(index);
     // Проверяем ячейку на наличия персонажа в ней
     if (isCharacter) {
       // Если персонаж игровой, то присваиваем текущего персонажа в переменную this.selectChar
@@ -94,9 +95,7 @@ export default class GameController {
 
     // Если перемещение доступно, фильтрует стейт, пушим измененного чара и рендерим поле
     if (this.selectedChar && this.stepIsPossible && !isCharacter) {
-      this.state.teams = [...this.state.teams].filter(
-        (char) => char.position !== this.selectedChar.position
-      );
+      this.state.teams = this.filterCharacter(this.selectedChar);
       this.selectedChar.position = index;
       this.state.teams.push(this.selectedChar);
       this.endOfTurn();
@@ -105,6 +104,7 @@ export default class GameController {
     // Если ходить на данную ячейку нельзя, уведомляем пользователя об этом.
     if (!this.stepIsPossible && !isCharacter && this.selectedChar) {
       this.gamePlay.showTooltip('Information', 'Impossible to go here!', 'warning');
+      return;
     }
 
     // Если атака доступна, атакуем
@@ -127,8 +127,8 @@ export default class GameController {
 
   // Вход курсора на ячейку
   onCellEnter(index) {
-    const isCharacter = this.gamePlay.cells[index].firstElementChild;
-    const currentChar = this.state.teams.find((character) => character.position === index);
+    const isCharacter = this.haveACharacter(index);
+    const currentChar = this.findCurrentChar(index);
     // Если ячейка не пуста и выбран игровой персонаж,
     // проверяем доступность перемещения в указанную ячейку
     if (this.selectedChar && !isCharacter) {
@@ -136,7 +136,7 @@ export default class GameController {
         this.selectedChar.position,
         index,
         this.selectedChar.character.step
-      ).success;
+      );
       // Если true подсвечиваем ячейку и меняем курсор
       if (this.stepIsPossible) {
         this.gamePlay.selectCell(index, 'green');
@@ -227,7 +227,7 @@ export default class GameController {
       attacker.character.attack - enemy.character.defence,
       attacker.character.attack * 0.1
     ).toFixed();
-    this.state.teams = this.state.teams.filter((char) => char.position !== defender.position);
+    this.state.teams = this.filterCharacter(defender);
     enemy.character.damage(attackPoints);
     if (enemy.character.health > 0) {
       this.state.teams.push(enemy);
@@ -265,29 +265,37 @@ export default class GameController {
       }
       return acc;
     }, []);
-    // Рандомно выбираем чара, которго будем атаковать
+    // Рандомно выбираем чара, которого будем атаковать
     const attacker = canAttackEnemies[Math.floor(Math.random() * canAttackEnemies.length)];
-    // Если есть чар, которго можно атаковать, атакуем,
+    // Если есть чар, которого можно атаковать, атакуем,
     // иначе находим куда можем сходить
     if (attacker) {
       const defender = attacker.playerChar[Math.floor(Math.random() * attacker.playerChar.length)];
       this.attackTheEnemy(attacker.npc, defender);
     } else {
       const npc = npcTeam[Math.floor(Math.random() * npcTeam.length)];
-      const indexSteps = isStepPossible(npc.position, 0, npc.character.step).indexArray.filter(
-        (index) => {
-          const positions = [...this.state.teams].map((char) => char.position);
-          return !positions.includes(index);
+      const bannedPositions = this.state.teams.reduce((acc, prev) => {
+        acc.push(prev.position);
+        return acc;
+      }, []);
+      const arrayOfCell = new Array(this.gamePlay.boardSize ** 2)
+        .fill(0)
+        .map((e, i) => i++)
+        .filter((position) => !bannedPositions.includes(position));
+      const indexStep = () => {
+        const idx = Math.floor(Math.random() * arrayOfCell.length);
+        const isStep = isStepPossible(npc.position, arrayOfCell[idx], npc.character.step);
+        if (!isStep) {
+          arrayOfCell.splice(idx, 1);
+          return indexStep();
         }
-      );
-      // Выбираем из доступных индексов куда сходит npc
-      if (indexSteps) {
-        const newPosition = indexSteps[Math.floor(Math.random() * indexSteps.length)];
-        this.state.teams = [...this.state.teams].filter((char) => char.position !== npc.position);
-        npc.position = newPosition;
-        this.state.teams.push(npc);
-        this.endOfTurn();
-      }
+        return arrayOfCell[idx];
+      };
+      const indexSteps = indexStep();
+      this.state.teams = this.filterCharacter(npc);
+      npc.position = indexSteps;
+      this.state.teams.push(npc);
+      this.endOfTurn();
     }
   }
 
@@ -345,7 +353,7 @@ export default class GameController {
       0
     );
     this.renderScore();
-    const playerCoordinates = [0, 1, 8, 9, 16, 17, 24, 25, 32, 33, 40, 41, 48, 49, 56, 57];
+    const playerCoordinates = generateCoordinates('player', this.gamePlay.boardSize);
     this.state.teams = this.state.teams.reduce((acc, prev) => {
       prev.character.levelUp();
       acc.push(prev);
@@ -398,17 +406,27 @@ export default class GameController {
 
   // Рендер очков
   renderScore() {
-    const levelElement = this.gamePlay.container.querySelector('.level-description')
-      .firstElementChild;
-    const scoreElement = this.gamePlay.container.querySelector('.score-description')
-      .firstElementChild;
-    const recordElement = this.gamePlay.container.querySelector('.record-description')
-      .firstElementChild;
+    const levelElement = this.gamePlay.container.querySelector('.level-value');
+    const scoreElement = this.gamePlay.container.querySelector('.score-value');
+    const recordElement = this.gamePlay.container.querySelector('.record-value');
     levelElement.textContent = this.state.currentLevel;
     scoreElement.textContent = this.state.numberOfPoints;
     this.state.record =
       this.state.record > this.state.numberOfPoints ? this.state.record : this.state.numberOfPoints;
     recordElement.textContent = this.state.record;
     scoreElement.textContent = this.state.numberOfPoints;
+  }
+
+  // Проверка ячейки на наличие в ней персонажа
+  haveACharacter(index) {
+    return this.state.teams.some((char) => char.position === index);
+  }
+
+  findCurrentChar(index) {
+    return this.state.teams.find((character) => character.position === index);
+  }
+
+  filterCharacter(character) {
+    return this.state.teams.filter((char) => char.position !== character.position);
   }
 }

@@ -15,9 +15,20 @@ export function* characterGenerator(allowedTypes, maxLevel) {
   }
 }
 
-export function generateTeam(allowedTypes, maxLevel, characterCount) {
-  const playerCoordinates = [0, 1, 8, 9, 16, 17, 24, 25, 32, 33, 40, 41, 48, 49, 56, 57];
-  const npcCoordinates = [6, 7, 14, 15, 22, 23, 30, 31, 38, 39, 46, 47, 54, 55, 62, 63];
+export function generateCoordinates(type, boardSize = 8) {
+  return new Array(boardSize).fill(0).reduce((acc, prev, index) => {
+    if (type === 'player') {
+      acc.push(index * boardSize, index * boardSize + 1);
+    } else {
+      acc.push(index * boardSize + boardSize - 2, index * boardSize + boardSize - 1);
+    }
+    return acc;
+  }, []);
+}
+
+export function generateTeam(allowedTypes, maxLevel, characterCount, boardSize) {
+  const playerCoordinates = generateCoordinates('player', boardSize);
+  const npcCoordinates = generateCoordinates('npc', boardSize);
   let position;
   let idx;
   const teams = [];

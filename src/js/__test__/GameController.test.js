@@ -353,3 +353,12 @@ test('Метод endGame, должен вызвать renderScore, GamePlay.show
   expect(gameCtrl.gamePlay.unsubscribeAllMouseListeners).toBeCalled();
   expect(GamePlay.showMessage).toHaveBeenCalledWith('You Won!');
 });
+
+test('Метод updateState, копирует объект', () => {
+  const testObj = {
+    a: 2,
+  };
+  const state = gameCtrl.updateState({ test: testObj });
+  state.test.a = 5;
+  expect(testObj.a).toBe(2);
+});

@@ -16,7 +16,9 @@ export default class GameController {
   init() {
     // Инициализация стейта
     this.state = GameState.from({});
-    this.state.record = 0;
+    this.updateState({
+      record: 0,
+    });
     this.prepareGame();
     this.clickOnCells();
     this.overOnCells();
@@ -29,15 +31,17 @@ export default class GameController {
   }
 
   prepareGame() {
-    this.state.currentLevel = 1;
-    this.gamePlay.drawUi(themes[this.state.currentLevel - 1]);
     const playerTeams = generateTeam(new Team().playerTeams, 1, 2, this.gamePlay.boardSize);
     const npcTeams = generateTeam(new Team().npcTeams, 1, 2, this.gamePlay.boardSize);
-    this.state.teams = [...playerTeams, ...npcTeams];
-    this.selectedChar = null;
-    this.state.numberOfPoints = 0;
+    this.updateState({
+      currentLevel: 1,
+      teams: [...playerTeams, ...npcTeams],
+      numberOfPoints: 0,
+      playerTurn: true,
+    });
+    this.gamePlay.drawUi(themes[this.state.currentLevel - 1]);
     this.prevSelectedCharIndex = null;
-    this.state.playerTurn = true;
+    this.selectedChar = null;
     this.gamePlay.redrawPositions(this.state.teams);
   }
 
@@ -97,7 +101,9 @@ export default class GameController {
     if (this.selectedChar && this.stepIsPossible && !isCharacter) {
       this.state.teams = this.filterCharacter(this.selectedChar);
       this.selectedChar.position = index;
-      this.state.teams.push(this.selectedChar);
+      this.updateState({
+        teams: [...this.state.teams, this.selectedChar],
+      });
       this.endOfTurn();
     }
 
@@ -200,16 +206,18 @@ export default class GameController {
       this.gamePlay.showTooltip('Information', e, 'danger');
       return;
     }
-    this.state.currentLevel = loadState.currentLevel;
-    this.gamePlay.drawUi(themes[loadState.currentLevel - 1]);
     loadState.teams = loadState.teams.reduce((acc, prev) => {
       prev.character.__proto__ = Character.prototype;
       acc.push(prev);
       return acc;
     }, []);
-    this.state.teams = loadState.teams;
-    this.state.numberOfPoints = loadState.numberOfPoints;
-    this.state.playerTurn = loadState.playerTurn;
+    this.updateState({
+      currentLevel: loadState.currentLevel,
+      teams: loadState.teams,
+      numberOfPoints: loadState.numberOfPoints,
+      playerTurn: loadState.playerTurn,
+    });
+    this.gamePlay.drawUi(themes[loadState.currentLevel - 1]);
     this.gamePlay.redrawPositions(this.state.teams);
     this.renderScore();
     this.gamePlay.showTooltip('Information', 'Game loaded', 'info');
@@ -230,7 +238,9 @@ export default class GameController {
     this.state.teams = this.filterCharacter(defender);
     enemy.character.damage(attackPoints);
     if (enemy.character.health > 0) {
-      this.state.teams.push(enemy);
+      this.updateState({
+        teams: [...this.state.teams, enemy],
+      });
     }
 
     this.gamePlay
@@ -294,7 +304,9 @@ export default class GameController {
       const indexSteps = indexStep();
       this.state.teams = this.filterCharacter(npc);
       npc.position = indexSteps;
-      this.state.teams.push(npc);
+      this.updateState({
+        teams: [...this.state.teams, npc],
+      });
       this.endOfTurn();
     }
   }
@@ -319,7 +331,9 @@ export default class GameController {
         cell.classList.remove('selected-yellow', 'selected-green', 'selected-red')
       );
       this.gamePlay.setCursor(cursors.auto);
-      this.state.playerTurn = false;
+      this.updateState({
+        playerTurn: false,
+      });
       this.nextLevel();
       return;
     }
@@ -331,48 +345,61 @@ export default class GameController {
     }
     // Если true то передаем ход npc, иначе ходит игрок
     if (this.state.playerTurn) {
-      this.state.playerTurn = false;
+      this.updateState({
+        playerTurn: false,
+      });
       this.stepAI();
     } else {
-      this.state.playerTurn = true;
+      this.updateState({
+        playerTurn: true,
+      });
     }
   }
 
   // Переход на новый уровень
   nextLevel() {
     this.gamePlay.unsubscribe();
-    this.state.currentLevel += 1;
+    this.updateState({
+      currentLevel: (this.state.currentLevel += 1),
+    });
     // Если левел карты больше 4, завершаем игру. Игрок победил
     if (this.state.currentLevel > 4) {
       this.endGame();
       return;
     }
     this.gamePlay.drawUi(themes[this.state.currentLevel - 1]);
-    this.state.numberOfPoints += this.getPlayerTeam().reduce(
-      (acc, prev) => acc + prev.character.health,
-      0
-    );
+    const newPoints =
+      this.state.numberOfPoints +
+      this.getPlayerTeam().reduce((acc, prev) => acc + prev.character.health, 0);
+    this.updateState({
+      numberOfPoints: newPoints,
+    });
     this.renderScore();
     const playerCoordinates = generateCoordinates('player', this.gamePlay.boardSize);
-    this.state.teams = this.state.teams.reduce((acc, prev) => {
+    const levelUpTeams = this.state.teams.reduce((acc, prev) => {
       prev.character.levelUp();
       acc.push(prev);
       return acc;
     }, []);
+    this.updateState({
+      teams: levelUpTeams,
+    });
     const quantityChar = this.state.currentLevel > 3 ? 2 : 1;
     const newPlayerTeam = generateTeam(
       new Team().playerTeams,
       this.state.currentLevel - 1,
       quantityChar
     );
-    this.state.teams = [...this.state.teams, ...newPlayerTeam];
-    this.state.teams = this.state.teams.reduce((acc, prev) => {
+    let updateTeams = [...this.state.teams, ...newPlayerTeam].reduce((acc, prev) => {
       const idx = Math.floor(Math.random() * playerCoordinates.length);
       prev.position = playerCoordinates[idx];
       playerCoordinates.splice(idx, 1);
       acc.push(prev);
       return acc;
     }, []);
+    this.updateState({
+      teams: updateTeams,
+    });
     const newNPCTeams = generateTeam(
       new Team().npcTeams,
       this.state.currentLevel,
@@ -383,7 +410,10 @@ export default class GameController {
         char.character.statsUp();
       }
     });
-    this.state.teams = [...this.state.teams, ...newNPCTeams];
+    updateTeams = [...this.state.teams, ...newNPCTeams];
+    this.updateState({
+      teams: updateTeams,
+    });
     this.gamePlay.redrawPositions(this.state.teams);
     this.clickOnCells();
     this.overOnCells();
@@ -394,11 +424,14 @@ export default class GameController {
   // Конец игры
   endGame() {
     this.gamePlay.redrawPositions(this.state.teams);
-    this.state.currentLevel -= 1;
-    this.state.numberOfPoints += this.getPlayerTeam().reduce(
-      (acc, prev) => acc + prev.character.health,
-      0
-    );
+    const currentLevel = this.state.currentLevel - 1;
+    const newPoints =
+      this.state.numberOfPoints +
+      this.getPlayerTeam().reduce((acc, prev) => acc + prev.character.health, 0);
+    this.updateState({
+      currentLevel,
+      numberOfPoints: newPoints,
+    });
     this.renderScore();
     GamePlay.showMessage('You Won!');
     this.gamePlay.unsubscribeAllMouseListeners();
@@ -411,8 +444,11 @@ export default class GameController {
     const recordElement = this.gamePlay.container.querySelector('.record-value');
     levelElement.textContent = this.state.currentLevel;
     scoreElement.textContent = this.state.numberOfPoints;
-    this.state.record =
+    const newRecord =
       this.state.record > this.state.numberOfPoints ? this.state.record : this.state.numberOfPoints;
+    this.updateState({
+      record: newRecord,
+    });
     recordElement.textContent = this.state.record;
     scoreElement.textContent = this.state.numberOfPoints;
   }
@@ -422,11 +458,30 @@ export default class GameController {
     return this.state.teams.some((char) => char.position === index);
   }
 
+  // Ищет чара по позиции
   findCurrentChar(index) {
     return this.state.teams.find((character) => character.position === index);
   }
 
+  // Фильтрует чаров по позиции
   filterCharacter(character) {
     return this.state.teams.filter((char) => char.position !== character.position);
+  }
+
+  // Обновление стейта
+  updateState(object) {
+    this.state = { ...this.state };
+    for (const objectKey in object) {
+      // eslint-disable-next-line no-prototype-builtins
+      if (object.hasOwnProperty(objectKey)) {
+        if (object[objectKey] instanceof Array) {
+          object[objectKey] = [...object[objectKey]];
+        } else if (object[objectKey] instanceof Object) {
+          object[objectKey] = { ...object[objectKey] };
+        }
+        this.state[objectKey] = object[objectKey];
+      }
+    }
+    return this.state;
   }
 }
